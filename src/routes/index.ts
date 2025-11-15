@@ -1,0 +1,4 @@
+export * from "../modules/auth/auth.route"
+export * from "../modules/user/user.route"
+export * from "../modules/baccarat/bacc.route"
+export * from "../modules/bet-history/bet-history.route"
