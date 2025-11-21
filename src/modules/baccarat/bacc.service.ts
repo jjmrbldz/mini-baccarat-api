@@ -191,15 +191,14 @@ function computeWin(
   let win = 0;
   const opt = betOption.toUpperCase().replace("_", " ");
 
-  if (opt === "PLAYER" && winner === "PLAYER") win = betAmount * 1;
-  if (opt === "BANKER" && winner === "BANKER") win = betAmount * 0.95;
-  if (opt === "TIE" && winner === "TIE") win = betAmount * 8;
+  if (opt === 'PLAYER' && winner === 'PLAYER') win += betAmount * 2;
+  if (opt === 'BANKER' && winner === 'BANKER') win += betAmount * 1.95;
+  if (opt === 'TIE'     && winner === 'TIE')   win += betAmount * 9;
+  if (opt === 'PLAYER PAIR' && playerPair) win += betAmount * 12;
+  if (opt === 'BANKER PAIR' && bankerPair) win += betAmount * 12;
+  if (opt === 'BANKER' && winner === 'TIE') win += betAmount;
+  if (opt === 'PLAYER' && winner === 'TIE') win += betAmount;
 
-  if (opt === "PLAYER PAIR" && playerPair) win = betAmount * 11;
-  if (opt === "BANKER PAIR" && bankerPair) win = betAmount * 11;
-
-  // Push on tie (no win, no loss)
-  // PLAYER or BANKER bets only get stake returned somewhere else
   return win;
 }
 
@@ -209,43 +208,42 @@ function computeMultiBetWins(
   playerPair: boolean,
   bankerPair: boolean
 ) {
-  let totalWin = 0;
-  let totalBet = 0;
+  let totalWin = 0; // total payout returned
+  let totalBet = 0; // total stake
 
   const betResult = bets.map((b) => {
-    const win = computeWin(b.betOption, b.betAmount, winner, playerPair, bankerPair);
+    const win = computeWin(
+      b.betOption,
+      b.betAmount,
+      winner,
+      playerPair,
+      bankerPair
+    );
 
     totalWin += win;
     totalBet += b.betAmount;
 
-    const isPush =
-      winner === "TIE" &&
-      (b.betOption === "PLAYER" || b.betOption === "BANKER");
-
-    const status =
-      win > 0 ? "WIN" :
-      isPush     ? "PUSH" :
-      "LOSE";
+    const status = win > 0 ? "WIN" : "LOSE";
 
     return {
       betOption: b.betOption,
       betAmount: b.betAmount,
-      win,
-      totalReturn: isPush ? b.betAmount : b.betAmount + win,
+      win,                                 // full returned amount
       status
     };
   });
 
+  const netLoss = totalBet - totalWin;         // + = gain, - = loss
+
   return {
-    totalWin,
-    totalBet,
-    netLoss: totalWin - totalBet, // negative = user lost overall
+    totalWin,                                  // total chips returned
+    totalBet,                                  // total chips wagered
+    netLoss,                                   // final change to user balance
     betResult
   };
 }
 
 export async function bet(data: TBetBody, request: FastifyRequest) {
-  console.log("USSSEWRRRR", request.authUser)
   if (!request.authUser?.token) throw { code: MODULE_SERVICE_CODES["invalidToken"] };
   const user = request.authUser?.payload;
   if (!user || !user.id || !user.group)  throw { code: MODULE_SERVICE_CODES["userNotFound"] };
@@ -278,7 +276,7 @@ export async function bet(data: TBetBody, request: FastifyRequest) {
     await pointsRepo.insertPointLog(tx, {
       userId: user.id,
       type: isGain ? "add" : "deduct",
-      amount: payout.totalWin,
+      amount: payout.netLoss * -1,
       prevBalance: pointsBefore,
       afterBalance: pointsAfter,
       note: "baccarat",
@@ -295,7 +293,8 @@ export async function bet(data: TBetBody, request: FastifyRequest) {
     statusCode: 200, 
     data: {
       ...result,
-      ...payout
+      ...payout,
+      balance: pointsAfter,
     },
     message: "Bet success!" 
   }
