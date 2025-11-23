@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { mysqlTable, int, double, tinyint, datetime, varchar, index } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, double, tinyint, datetime, varchar, index, json } from "drizzle-orm/mysql-core";
 
 export const baccaratBetHistory = mysqlTable(
   "T_BACCARAT_BET_HISTORY",
@@ -24,6 +24,7 @@ export const baccaratBetHistory = mysqlTable(
     betOption: varchar("tbbh_bet_option", { length: 100 }).notNull(),
 
     betStatus: varchar("tbbh_bet_status", { length: 20 }).notNull().default("WAITING"),
+    betDetails: json("tbbh_bet_details").notNull(),
   },
   (table) => [
     index("idx_userId").on(table.userId),

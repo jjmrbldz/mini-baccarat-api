@@ -270,7 +270,11 @@ export async function bet(data: TBetBody, request: FastifyRequest) {
       userCashAfter: pointsAfter,
       netLoss: payout.netLoss,
       betOption: data.map(item => item.betOption).join(", "),
-      betStatus: "FINISH"
+      betStatus: "FINISH",
+      betDetails: {
+        ...result,
+        ...payout,
+      }
     });
 
     await pointsRepo.insertPointLog(tx, {

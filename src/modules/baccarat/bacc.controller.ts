@@ -13,6 +13,7 @@ export async function bet(
     const result = await service.bet(body, req);
     return reply.send(result);
   } catch (err: any) {
+    console.error(err)
     if (err?.code === MODULE_SERVICE_CODES["invalidCredentials"]) {
       return reply.code(401).send({ message: "Invalid credentials." });
     }
