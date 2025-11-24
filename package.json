@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup src/server.ts --format esm --target node20 --out-dir dist --clean --minify --sourcemap",
     "start": "node dist/server.js"
   },
   "keywords": [],
