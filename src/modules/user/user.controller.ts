@@ -12,6 +12,7 @@ export async function getUser(
     const result = await service.getUser(req);
     return reply.send(result);
   } catch (err: any) {
+    console.error(err)
     if (err?.code === MODULE_SERVICE_CODES["invalidToken"]) {
       return reply.code(401).send({ message: "Invalid or expired token." });
     }

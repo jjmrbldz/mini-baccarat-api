@@ -34,6 +34,7 @@ export async function openGame(
     const result = await service.openGame(body, req);
     return reply.send(result);
   } catch (err: any) {
+    console.error(err)
     if (err?.code === MODULE_SERVICE_CODES["invalidCredentials"]) {
       return reply.code(401).send({ message: "Invalid credentials." });
     }
