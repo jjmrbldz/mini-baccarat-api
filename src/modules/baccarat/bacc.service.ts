@@ -259,7 +259,7 @@ export async function bet(data: TBetBody, request: FastifyRequest) {
 
   const pointsBefore = await pointsRepo.findUserLatestPoints(user.id, user.group);
   const pointsAfter = (pointsBefore - payout.totalBet) + payout.totalWin;
-  const isGain = payout.netLoss * -1;
+  const isGain = (payout.netLoss * -1) >= 0;
 
   await db.transaction(async (tx) => {
     const returningId = await betHistoryRepo.insertBetHistory(tx, {
