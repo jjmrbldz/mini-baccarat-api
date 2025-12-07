@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import { zodPlugin, corsPlugin } from "./plugins";
-import { authRoutes, baccaratRoutes, betHistoryRoutes, userRoutes } from "./routes";
+import { authRoutes, baccaratRoutes, betHistoryRoutes, tournamentRoutes, userRoutes } from "./routes";
 
 export async function fastifyApp() {
   const fastify = Fastify({ logger: true });
@@ -12,6 +12,7 @@ export async function fastifyApp() {
   fastify.register(userRoutes, { prefix: "/user" });
   fastify.register(baccaratRoutes, { prefix: "/baccarat" });
   fastify.register(betHistoryRoutes, { prefix: "/bet-history" });
+  fastify.register(tournamentRoutes, { prefix: "/tournament" });
 
   fastify.get('/', (request, reply) => {
     reply.send({ 

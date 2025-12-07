@@ -1,11 +1,20 @@
 import { count, desc, eq } from "drizzle-orm";
-import { baccaratBetHistory, db } from "../../db";
+import { baccaratBetHistory, baccaratTournamentBetHistory, db } from "../../db";
 import { BacBetHistoryInsert, Tx } from "../../types";
 
 
 export async function insertBetHistory(tx: Tx, data: BacBetHistoryInsert) {
   const returningId = await tx
     .insert(baccaratBetHistory)
+    .values(data)
+    .$returningId();
+
+  return returningId[0].id;
+}
+
+export async function insertTournamentBetHistory(tx: Tx, data: BacBetHistoryInsert) {
+  const returningId = await tx
+    .insert(baccaratTournamentBetHistory)
     .values(data)
     .$returningId();
 

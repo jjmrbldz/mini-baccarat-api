@@ -1,13 +1,15 @@
-import { baccaratBetHistory, db } from "../../db";
-import { BaccaratCard, BaccaratHand, BaccaratResult } from "../../types";
+import { baccaratBetHistory, baccaratTournamentBetHistory, db } from "../../db";
+import { BaccaratCard, BaccaratHand, BaccaratResult, TournamentRegisterSchema } from "../../types";
 import { createDeck, drawFromDeck } from "../../utils/baccarat";
 import { TBetBody } from "./bacc.schema";
 import { FastifyRequest } from "fastify";
 import * as betHistoryRepo from "../bet-history/bethistory.repository";
 import * as userRepo from "../user/user.repository";
 import * as pointsRepo from "../point-log/points.repository";
+import * as settingsRepo from "../minigame/minigame.repository";
 import { MODULE_SERVICE_CODES } from "../../constants";
 import { getTableName } from "drizzle-orm";
+import dayjs from "dayjs";
 
 function parseCardValue(card: string): number {
   const value = card.slice(0, -1);
@@ -243,10 +245,130 @@ function computeMultiBetWins(
   };
 }
 
-export async function bet(data: TBetBody, request: FastifyRequest) {
+function getTotalBetAmount(bets: { betOption: string; betAmount: number }[]) {
+  return bets.reduce((sum, b) => sum + b.betAmount, 0);
+}
+
+async function checkBetLimit(minigameId = 1, userId: number) {
+  let minBetMinigame: number = -1;
+  let maxBetMinigame: number = -1;
+
+  const [settings]  = await settingsRepo.getMinigameSettings(minigameId);
+
+  if (!settings) {
+    throw { code: "MINIGAME_NOT_FOUND" };
+  }
+
+  const { minBet, maxBet, scheduleOpen, scheduleClose, name } = settings;
+
+  const now = dayjs();
+  if (scheduleOpen && now.isBefore(dayjs(scheduleOpen))) {
+    throw { code: "MINIGAME_NOT_OPEN" };
+  }
+  if (scheduleClose && now.isAfter(dayjs(scheduleClose))) {
+    throw { code: "MINIGAME_CLOSED" };
+  }
+  minBetMinigame = minBet || minBetMinigame;
+  maxBetMinigame = maxBet || maxBetMinigame;
+
+  const [user] = await userRepo.findUser(userId);
+
+  if (!user) {
+    throw { code: "USER_NOT_FOUND" };
+  }
+
+  const isTournament = name?.toLowerCase().includes("tournament");
+
+  const { 
+    minBetMinigame: userMinBetMinigame, 
+    maxBetMinigame: userMaxBetMinigame, 
+    minBetTournament, 
+    maxBetTournament
+  } = user;
+
+  if (isTournament) {
+    if (minBetTournament != null && minBetTournament >= 0) {
+      minBetMinigame = minBetTournament;
+    }
+    if (maxBetTournament != null && maxBetTournament >= 0) {
+      maxBetMinigame = maxBetTournament;
+    }
+  } else {
+    if (userMinBetMinigame != null && userMinBetMinigame >= 0) {
+      minBetMinigame = userMinBetMinigame;
+    }
+    if (userMaxBetMinigame != null && userMaxBetMinigame >= 0) {
+      maxBetMinigame = userMaxBetMinigame;
+    }
+  }
+
+  return {
+    minBetMinigame,
+    maxBetMinigame
+  }
+}
+
+export async function getSettings(request: FastifyRequest, body: TournamentRegisterSchema) {
+  if (!request.authUser?.token) throw { statusCode: 401, code: MODULE_SERVICE_CODES["invalidToken"] };
+  const user = request.authUser?.payload;
+  if (!user || !user.id || !user.group)  throw { statusCode: 404, code: MODULE_SERVICE_CODES["userNotFound"] };
+  
+  const [settings] = await settingsRepo.getMinigameSettings(body.tournamentId);
+  if (!settings) throw { statusCode: 404, message: "No settings found" };  
+
+  const isTournament = settings.name?.toLowerCase().includes("tournament");
+
+  const checkIsRegistered = await pointsRepo.checkTournamentRegistration(user.id, settings.settingsId!, user.group);
+
+  const isRegistered = !isTournament ? true : checkIsRegistered && checkIsRegistered.length > 0 ? true : false;
+
+  let minBet = user.minBet > 0 ? user.minBet : (settings.minBet || 10);
+  let maxBet = user.maxBet > 0 ? user.maxBet : (settings.maxBet || 1000);
+
+  if (isTournament) {
+    minBet = user.minBetTournament > 0 ? user.minBetTournament : (settings.minBet || 10);
+    maxBet = user.maxBetTournament > 0 ? user.maxBetTournament : (settings.maxBet || 10);
+  }
+
+  let isOpen: boolean = true;
+
+  const now = dayjs();
+  if (settings.scheduleOpen && now.isBefore(dayjs(settings.scheduleOpen))) {
+    isOpen = false;
+  }
+  if (settings.scheduleClose && now.isAfter(dayjs(settings.scheduleClose))) {
+    isOpen = false;
+  }
+
+  return {
+    statusCode: 200,
+    data: {
+      ...settings,
+      minBet,
+      maxBet,
+      isTournament,
+      isRegistered,
+      isOpen
+    },
+    message: "Get settings."
+  }
+}
+
+export async function bet(data: TBetBody, request: FastifyRequest, query?: {id?: number}) {
   if (!request.authUser?.token) throw { code: MODULE_SERVICE_CODES["invalidToken"] };
   const user = request.authUser?.payload;
-  if (!user || !user.id || !user.group)  throw { code: MODULE_SERVICE_CODES["userNotFound"] };
+  if (!user || !user.id || !user.group)  throw { code: MODULE_SERVICE_CODES["userNotFound"] };  
+
+  const totalBetAmount = getTotalBetAmount(data);
+  const {data: settings} = await getSettings(request, {tournamentId: query?.id || 1});
+
+  const isTournament = settings.isTournament;
+
+  if (!settings.isOpen) throw { statusCode: 401, message: "Game not open." }
+  if (!settings.isRegistered) throw { statusCode: 401, message: "You are not registered to this game." }
+  
+  if (totalBetAmount > settings.maxBet) throw { statusCode: 400, message: `Maximum Bet is ${settings.maxBet}` };  
+  if (totalBetAmount < settings.minBet) throw { statusCode: 400, message: `Minimum Bet is ${settings.minBet}` };  
 
   const { result } = simulateBaccaratRound();
 
@@ -262,20 +384,39 @@ export async function bet(data: TBetBody, request: FastifyRequest) {
   const isGain = (payout.netLoss * -1) >= 0;
 
   await db.transaction(async (tx) => {
-    const returningId = await betHistoryRepo.insertBetHistory(tx, {
-      userId: request.authUser?.payload.id,
-      betAmount: payout.totalBet,
-      winAmount: payout.totalWin,
-      userCashBefore: pointsBefore,
-      userCashAfter: pointsAfter,
-      netLoss: payout.netLoss,
-      betOption: data.map(item => item.betOption).join(", "),
-      betStatus: "FINISH",
-      betDetails: {
-        ...result,
-        ...payout,
-      }
-    });
+    let returningId: number;
+
+    if (!isTournament) {
+      returningId = await betHistoryRepo.insertBetHistory(tx, {
+        userId: request.authUser?.payload.id,
+        betAmount: payout.totalBet,
+        winAmount: payout.totalWin,
+        userCashBefore: pointsBefore,
+        userCashAfter: pointsAfter,
+        netLoss: payout.netLoss,
+        betOption: data.map(item => item.betOption).join(", "),
+        betStatus: "FINISH",
+        betDetails: {
+          ...result,
+          ...payout,
+        }
+      });
+    } else {
+      returningId = await betHistoryRepo.insertTournamentBetHistory(tx, {
+        userId: request.authUser?.payload.id,
+        betAmount: payout.totalBet,
+        winAmount: payout.totalWin,
+        userCashBefore: pointsBefore,
+        userCashAfter: pointsAfter,
+        netLoss: payout.netLoss,
+        betOption: data.map(item => item.betOption).join(", "),
+        betStatus: "FINISH",
+        betDetails: {
+          ...result,
+          ...payout,
+        }
+      });
+    }
 
     await pointsRepo.insertPointLog(tx, {
       userId: user.id,
@@ -283,10 +424,10 @@ export async function bet(data: TBetBody, request: FastifyRequest) {
       amount: payout.netLoss * -1,
       prevBalance: pointsBefore,
       afterBalance: pointsAfter,
-      note: "baccarat",
+      note: settings.settingsId || "baccarat",
       note2: "",
       note3: "",
-      referenceTable: getTableName(baccaratBetHistory),
+      referenceTable: getTableName(!isTournament ? baccaratBetHistory : baccaratTournamentBetHistory),
       referenceId: returningId
     }, user.group!)
 

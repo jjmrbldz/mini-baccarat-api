@@ -30,6 +30,10 @@ export const users = mysqlTable('T_USER', {
   isBlocked: tinyint("tu_is_blocked").default(0),
   isWithdrawn: tinyint("tu_is_withdrawn").default(0),
   isEditor: tinyint("tu_is_editor").default(0),
+  minBetMinigame: double("tu_min_bet_minigame").default(-1),
+  maxBetMinigame: double("tu_max_bet_minigame").default(-1),
+  minBetTournament: double("tu_min_bet_tournament").default(-1),
+  maxBetTournament: double("tu_max_bet_tournament").default(-1),
 })
 
 export type User = InferSelectModel<typeof users>;

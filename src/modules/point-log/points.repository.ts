@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, Groups, pointLogTables } from "../../db";
 import { Tx } from "../../types";
 import { UserPointLogInsert } from "../../types/point-logs";
@@ -25,4 +25,16 @@ export async function insertPointLog(tx: Tx, data: UserPointLogInsert<"A">, user
     .$returningId();
 
   return returningId[0].id;
+}
+
+export async function checkTournamentRegistration(userId: number, settingsId: string, userGroup: Groups) {
+  const pointLogs = pointLogTables[userGroup];
+  return await db
+    .select()
+    .from(pointLogs)
+    .where(and(
+      eq(pointLogs.userId, userId),
+      eq(pointLogs.note, settingsId),
+      eq(pointLogs.note2, "registration"),
+    ))
 }

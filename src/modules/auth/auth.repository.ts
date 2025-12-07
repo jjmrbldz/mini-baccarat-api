@@ -8,6 +8,10 @@ export async function findUserToken(userId: number, token: string) {
       username: users.username,
       group: users.group,
       point: users.point,
+      minBet: users.minBetMinigame,
+      maxBet: users.maxBetMinigame,
+      minBetTournament: users.minBetTournament,
+      maxBetTournament: users.maxBetTournament,
     })
     .from(users)
     .where(and(

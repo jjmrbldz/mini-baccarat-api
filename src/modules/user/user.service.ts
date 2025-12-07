@@ -9,11 +9,29 @@ export async function getUser(request: FastifyRequest) {
   const user = await repo.findUser(userId);
   if (!user[0]) throw { code: MODULE_SERVICE_CODES["userNotFound"] };
 
-  const { username, point, level, group } = user[0]
+  const { 
+    username, 
+    point, 
+    level, 
+    group, 
+    minBetMinigame, 
+    maxBetMinigame, 
+    minBetTournament, 
+    maxBetTournament 
+  } = user[0]
 
   return { 
     statusCode: 200, 
-    data: { username, point, level, group },
+    data: { 
+      username, 
+      point, 
+      level, 
+      group, 
+      minBetMinigame, 
+      maxBetMinigame, 
+      minBetTournament, 
+      maxBetTournament 
+    },
     message: "Success!" 
   }
 }
