@@ -399,7 +399,8 @@ export async function bet(data: TBetBody, request: FastifyRequest, query?: {id?:
         betDetails: {
           ...result,
           ...payout,
-        }
+        },
+        settingsId: settings.settingsId,
       });
     } else {
       returningId = await betHistoryRepo.insertTournamentBetHistory(tx, {
@@ -414,7 +415,8 @@ export async function bet(data: TBetBody, request: FastifyRequest, query?: {id?:
         betDetails: {
           ...result,
           ...payout,
-        }
+        },
+        settingsId: settings.settingsId,
       });
     }
 

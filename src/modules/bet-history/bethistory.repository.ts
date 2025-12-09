@@ -42,3 +42,25 @@ export async function getBetHistory(userId: number, page = 1, pageSize = 5) {
     data: result,
   }
 }
+
+export async function getBetHistoryTournament(userId: number, page = 1, pageSize = 5) {
+  const countRows = await db
+    .select({ count: count() })
+    .from(baccaratTournamentBetHistory)
+    .where(eq(baccaratTournamentBetHistory.userId, userId))
+
+  const totalItems = countRows[0].count;
+
+  const result = await db
+    .select()
+    .from(baccaratTournamentBetHistory)
+    .where(eq(baccaratTournamentBetHistory.userId, userId))
+    .orderBy(desc(baccaratTournamentBetHistory.id))
+    .limit((pageSize))
+    .offset((page - 1) * pageSize);
+
+  return {
+    totalItems,
+    data: result,
+  }
+}
