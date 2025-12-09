@@ -400,7 +400,7 @@ export async function bet(data: TBetBody, request: FastifyRequest, query?: {id?:
           ...result,
           ...payout,
         },
-        settingsId: settings.settingsId,
+        // settingsId: settings.settingsId,
       });
     } else {
       returningId = await betHistoryRepo.insertTournamentBetHistory(tx, {
