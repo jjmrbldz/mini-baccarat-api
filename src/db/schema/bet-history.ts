@@ -25,7 +25,7 @@ export const baccaratBetHistory = mysqlTable(
 
     betStatus: varchar("tbbh_bet_status", { length: 20 }).notNull().default("WAITING"),
     betDetails: json("tbbh_bet_details").notNull(),
-    settingsId: varchar("tms_id", { length: 100 }),
+    // settingsId: varchar("tms_id", { length: 100 }),
   },
   (table) => [
     index("idx_userId").on(table.userId),
